@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCUSAFE - Dashboard</title>
+    <!-- Bootstrap CSS for layout -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="animate-fade-in">
+
+<nav class="navbar navbar-expand-lg glass-nav sticky-top">
+  <div class="container">
+    <a class="navbar-brand fs-4" href="#">DOCUSAFE</a>
+    <div class="d-flex align-items-center">
+        <span class="navbar-text me-4 text-white fw-medium" id="userNameDisplay"></span>
+        <button class="btn btn-outline-glass btn-sm" id="logoutBtn">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h2 class="fw-bold" style="color: var(--text-main); font-weight: 700;">My Vault</h2>
+        <a href="upload.html" class="btn btn-glass-success shadow-sm d-flex align-items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-arrow-up-fill" viewBox="0 0 16 16">
+              <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2zm2.354 5.146a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2z"/>
+            </svg>
+            Upload Document
+        </a>
+    </div>
+
+    <div class="glass-card p-4">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Document Title</th>
+                        <th>Upload Date</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="docsTableBody">
+                    <!-- Loaded via JS -->
+                </tbody>
+            </table>
+        </div>
+        <div id="noDocsMsg" class="text-center text-muted py-5 d-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-file-earmark-x mb-3" viewBox="0 0 16 16" style="opacity: 0.5;">
+              <path d="M6.854 7.146a.5.5 0 1 0-.708.708L7.293 9l-1.147 1.146a.5.5 0 0 0 .708.708L8 9.707l1.146 1.147a.5.5 0 0 0 .708-.708L8.707 9l1.147-1.146a.5.5 0 0 0-.708-.708L8 8.293 6.854 7.146z"/>
+              <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+            </svg>
+            <p class="fs-5">Your vault is empty</p>
+            <p style="font-size: 0.9rem;">Start uploading sensitive documents to keep them secure.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:5000/api';
+    document.addEventListener('DOMContentLoaded', async () => {
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+        
+        if(!token || !user) {
+            window.location.href = 'index.html';
+            return;
+        }
+
+        document.getElementById('userNameDisplay').textContent = `Welcome, ${user.full_name}`;
+        
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+
+        const res = await fetch(`${API_URL}/docs/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if(res.ok) {
+            const docs = await res.json();
+            const tbody = document.getElementById('docsTableBody');
+            
+            if(docs.length === 0) {
+                document.getElementById('noDocsMsg').classList.remove('d-none');
+            } else {
+                docs.forEach(doc => {
+                    let badgeClass = 'badge-safe';
+                    if(doc.status === 'Expired') badgeClass = 'badge-danger';
+                    if(doc.status === 'Expiring Soon') badgeClass = 'badge-warning';
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="fw-bold" style="color: #e2e8f0;">${doc.title}</td>
+                        <td class="text-muted">${new Date(doc.uploaded_at).toLocaleDateString()}</td>
+                        <td class="text-muted">${doc.expiry_date || 'No expiry detected'}</td>
+                        <td><span class="glass-badge ${badgeClass}">${doc.status}</span></td>
+                        <td class="text-end text-nowrap">
+                            <a href="https://www.google.com/search?q=renew+${encodeURIComponent(doc.title)}+government+portal" target="_blank" class="btn btn-sm btn-glass-primary me-2" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                                Renew / Gov Portal
+                            </a>
+                            <button onclick="downloadDoc(${doc.id})" class="btn btn-sm btn-outline-glass">
+                                Download
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+    });
+
+    async function downloadDoc(id) {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/docs/${id}/download`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if(res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `document_${id}`; 
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } else {
+            alert('Error downloading file');
+        }
+    }
+</script>
+</body>
+</html>

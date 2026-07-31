@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCUSAFE - Upload</title>
+    <!-- Bootstrap CSS for layout -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="animate-fade-in">
+
+<nav class="navbar navbar-expand-lg glass-nav sticky-top">
+  <div class="container">
+    <a class="navbar-brand fs-4" href="dashboard.html">DOCUSAFE</a>
+    <div class="d-flex align-items-center">
+        <a href="dashboard.html" class="btn btn-outline-glass btn-sm">← Back to Vault</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-5 pt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="glass-card p-5 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="var(--primary)" class="bi bi-cloud-arrow-up-fill mb-4" viewBox="0 0 16 16">
+                  <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2zm2.354 5.146a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2z"/>
+                </svg>
+                <h3 class="mb-4 fw-bold">Secure Document Upload</h3>
+                <p class="text-muted mb-4">Files are instantly encrypted with AES-256 upon upload. We'll automatically scan them for expiry dates using AI.</p>
+                
+                <div id="uploadAlert" class="alert d-none glass-badge" style="font-size: 0.9rem;"></div>
+                
+                <form id="uploadForm" class="text-start mt-4">
+                    <div class="mb-4">
+                        <label class="form-label">Document Title</label>
+                        <input type="text" class="form-control glass-input" id="title" placeholder="e.g. Passport, Driver's License" required>
+                    </div>
+                    <div class="mb-5">
+                        <label class="form-label">Select File</label>
+                        <input class="form-control glass-input" type="file" id="fileInput" required>
+                        <small class="text-muted mt-2 d-block">Allowed formats: PNG, JPG, JPEG, PDF (Max 16MB)</small>
+                    </div>
+                    <button type="submit" class="btn btn-glass-success btn-lg w-100">
+                        Secure Upload & Scan
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:5000/api';
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('token');
+        if(!token) window.location.href = 'index.html';
+
+        const form = document.getElementById('uploadForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = form.querySelector('button');
+            const alertBox = document.getElementById('uploadAlert');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Encrypting & Scanning...';
+            
+            const formData = new FormData();
+            formData.append('title', document.getElementById('title').value);
+            formData.append('file', document.getElementById('fileInput').files[0]);
+            
+            try {
+                const res = await fetch(`${API_URL}/docs/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                
+                const data = await res.json();
+                if(res.ok) {
+                    alertBox.className = 'alert d-block mt-3 glass-badge badge-safe';
+                    alertBox.textContent = 'Upload successful! Redirecting...';
+                    form.reset();
+                    setTimeout(() => window.location.href = 'dashboard.html', 1500);
+                } else {
+                    alertBox.className = 'alert d-block mt-3 glass-badge badge-danger';
+                    alertBox.textContent = data.message || 'Upload failed';
+                }
+            } catch(e) {
+                alertBox.className = 'alert d-block mt-3 glass-badge badge-danger';
+                alertBox.textContent = 'Server error during upload';
+            } finally {
+                if(!res?.ok) {
+                    btn.disabled = false;
+                    btn.textContent = 'Secure Upload & Scan';
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>
